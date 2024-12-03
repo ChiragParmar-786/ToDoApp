@@ -1,10 +1,19 @@
 package com.example.JobMs.Job;
 
 
+import com.example.JobMs.Configuration.RestTemplateService;
+import com.example.JobMs.DTO.Company;
+import com.example.JobMs.DTO.JobDto;
+import com.example.JobMs.DTO.Review;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class JobServiceImp implements JobService{
@@ -12,32 +21,51 @@ public class JobServiceImp implements JobService{
 
     JobRepository jobRepository;
 
+    RestTemplateService restTemplateService;
 
-
-    public JobServiceImp(JobRepository jobRepository) {
+    public JobServiceImp(JobRepository jobRepository,RestTemplateService restTemplateService) {
         this.jobRepository = jobRepository;
+        this.restTemplateService=restTemplateService;
     }
 
 
     @Override
-    public List<Job> findAll() {
-        return jobRepository.findAll();
+    public List<JobDto> findAll() {
+
+        List<Job> jobs = jobRepository.findAll();
+        List<JobDto> jobDtos = new ArrayList<>();
+
+        return jobs.stream().map(this::convertJobDto).collect(Collectors.toList());
     }
 
     @Override
     public Boolean createJob(Job job) {
-        if(job.getCompanyId() != null){
-            jobRepository.save(job);
-            return true;
-        }
-       else {
+        Company company;
+        try {
+            company = restTemplateService.restTemplate().getForObject("http://localhost:8082/companies/" + job.getCompanyId(), Company.class);
+        } catch (Exception e) {
             return false;
         }
+
+        if (job.getCompanyId() != null && company != null) {
+            jobRepository.save(job);
+            return true;
+        } else {
+            return false;
+        }
+
     }
 
     @Override
-    public Job findJobById(Long id) {
-        return jobRepository.findById(id).orElse(null);
+    public JobDto findJobById(Long id) {
+
+        Job job = jobRepository.findById(id).orElse(null);
+        if(job != null)
+        {
+            return convertJobDto(job);
+        }
+
+        return null;
     }
 
     @Override
@@ -67,5 +95,20 @@ public class JobServiceImp implements JobService{
                 return true;
             }
         return false;
+    }
+
+    private JobDto convertJobDto(Job job)
+    {
+
+
+        Company company = restTemplateService.restTemplate().getForObject("http://localhost:8082/companies/"+job.getCompanyId(), Company.class);
+
+        List<Review> reviews = restTemplateService.restTemplate().exchange("http://localhost:8083/reviews?companyId="+job.getCompanyId(), HttpMethod.GET,null,new ParameterizedTypeReference<List<Review>>(){}).getBody();
+
+         if(reviews !=null && company !=null) {
+             company.setReviews(reviews);
+         }
+
+        return new JobDto(job.getId(), job.getTitle(),job.getDescription(),job.getMinSalary(),job.getMaxSalary(),job.getLocation(),company);
     }
 }
