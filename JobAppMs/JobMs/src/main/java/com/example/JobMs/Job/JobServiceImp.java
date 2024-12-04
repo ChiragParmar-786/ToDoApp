@@ -1,10 +1,11 @@
 package com.example.JobMs.Job;
 
 
-import com.example.JobMs.Configuration.RestTemplateService;
+import com.example.JobMs.Configuration.AppConfig;
 import com.example.JobMs.DTO.Company;
 import com.example.JobMs.DTO.JobDto;
 import com.example.JobMs.DTO.Review;
+import com.example.JobMs.Mapper.JobMapper;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
@@ -21,11 +22,11 @@ public class JobServiceImp implements JobService{
 
     JobRepository jobRepository;
 
-    RestTemplateService restTemplateService;
+    RestTemplate restTemplate;
 
-    public JobServiceImp(JobRepository jobRepository,RestTemplateService restTemplateService) {
+    public JobServiceImp(JobRepository jobRepository, RestTemplate restTemplate) {
         this.jobRepository = jobRepository;
-        this.restTemplateService=restTemplateService;
+        this.restTemplate = restTemplate;
     }
 
 
@@ -42,15 +43,10 @@ public class JobServiceImp implements JobService{
     public Boolean createJob(Job job) {
         Company company;
         try {
-            company = restTemplateService.restTemplate().getForObject("http://localhost:8082/companies/" + job.getCompanyId(), Company.class);
-        } catch (Exception e) {
-            return false;
-        }
-
-        if (job.getCompanyId() != null && company != null) {
+            company = restTemplate.getForObject("http://COMPANYMS/companies/" + job.getCompanyId(), Company.class);
             jobRepository.save(job);
             return true;
-        } else {
+        } catch (Exception e) {
             return false;
         }
 
@@ -99,16 +95,17 @@ public class JobServiceImp implements JobService{
 
     private JobDto convertJobDto(Job job)
     {
+        JobDto jobDto;
 
+        Company company = restTemplate.getForObject("http://COMPANYMS:8082/companies/"+job.getCompanyId(), Company.class);
 
-        Company company = restTemplateService.restTemplate().getForObject("http://localhost:8082/companies/"+job.getCompanyId(), Company.class);
+        List<Review> reviews = restTemplate.exchange("http://REVIEWMS:8083/reviews?companyId="+job.getCompanyId(), HttpMethod.GET,null,new ParameterizedTypeReference<List<Review>>(){}).getBody();
 
-        List<Review> reviews = restTemplateService.restTemplate().exchange("http://localhost:8083/reviews?companyId="+job.getCompanyId(), HttpMethod.GET,null,new ParameterizedTypeReference<List<Review>>(){}).getBody();
+        if (company != null) {
+            jobDto = JobMapper.getJobDto(job,company,reviews);
+            return jobDto;
+        }
 
-         if(reviews !=null && company !=null) {
-             company.setReviews(reviews);
-         }
-
-        return new JobDto(job.getId(), job.getTitle(),job.getDescription(),job.getMinSalary(),job.getMaxSalary(),job.getLocation(),company);
+        return null;
     }
 }

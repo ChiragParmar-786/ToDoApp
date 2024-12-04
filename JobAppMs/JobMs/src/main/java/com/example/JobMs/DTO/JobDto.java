@@ -23,6 +23,9 @@ public class JobDto {
 
     }
 
+    public JobDto() {
+    }
+
     public long getId() {
         return id;
     }
