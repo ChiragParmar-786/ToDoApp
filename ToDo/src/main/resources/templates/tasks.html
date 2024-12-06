@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>Todoo App</title>
+</head>
+<body>
+<h1>Todoo App</h1>
+<div>
+  <form action="/tasks" method="post">
+    <div>
+      <input type="text" name="title" placeholder="Add new task..." required>
+    </div>
+    <div>
+      <button type="submit">Add</button>
+    </div>
+  </form>
+  <th:block th:each="task : ${tasks}">
+    <div>
+      <span th:text="${task.title}">Task Title</span>
+    </div>
+  </th:block>
+</div>
+</body>
+</html>
